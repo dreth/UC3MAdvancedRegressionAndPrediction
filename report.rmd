@@ -7,9 +7,9 @@ output:
     extra_dependencies: ["xcolor"]
     pandoc_args: ["--lua-filter=color_filter.lua"]
     md_extensions: +bracketed_spans
-    urlcolor: blue
     toc: true
     toc_depth: 4
+urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
@@ -25,6 +25,11 @@ knitr::opts_chunk$set(
 # importing the data and libraries
 library(dplyr)
 library(ggplot2)
+library(knitr)
+library(caret)
+library(MASS)
+library(ggfortify)
+library(ggResidpanel)
 
 df <- read.csv('./data/data.csv')
 df <- df %>% dplyr::select(c('birth_rate','life_expectancy',
@@ -49,6 +54,8 @@ A second helper dataset that I also used and merged with the one obtained throug
 
 The amount of historical data on both databases is massive, and the amount of possible predictors is immense. I have decided to stick to an amount of variables that is also quite large, but will be very interesting to reduce with the techniques learned in class.
 
+\newpage
+
 ## Variables
 
 I have made a really large selection of variables (over 45) initially, however, as many included NAs and a significant amount of countries and dependencies lacked a large amount of metrics, the amount of columns and countries has been reduced to 38 and 173 respectively. Nonetheless, this is still a reasonable amount of data, and also enough to make a reasonably acceptable prediction.
@@ -72,13 +79,13 @@ Variables in the original dataset as constructed using the World Bank Databank t
 - [**life_expectancy**]{color="blue"}: Life expectancy at birth, total (years)
 - [**exports_perc_gdp**]{color="blue"}: Exports of goods and services (% of GDP)
 - [**education_years**]{color="blue"}: Compulsory education, duration (years)
-- [**gdp_per_capita_ppp**]{color="blue"}: GDP per capita, PPP (current international $)
+- [**gdp_per_capita_ppp**]{color="blue"}: GDP per capita, PPP (current international USD)
 - [**perc_internet_users**]{color="red"}: Individuals using the Internet (% of population)
 - [**infant_mort_rate**]{color="blue"}: Mortality rate, infant (per 1,000 live births)
 - [**inflation_perc**]{color="blue"}: Inflation, consumer prices (annual %)
 - [**consumer_price_index**]{color="blue"}: Consumer price index (2010 = 100)
 - [**crop_production_index**]{color="blue"}: Crop production index (2014-2016 = 100)
-- [**goods_imports**]{color="blue"}: Goods imports (BoP, current US$)
+- [**goods_imports**]{color="blue"}: Goods imports (BoP, current USD)
 - [**prevalence_of_anemia_pregnancy**]{color="blue"}: Prevalence of anemia among pregnant women (%)
 - [**diabetes_prevalence**]{color="blue"}: Diabetes prevalence (% of population ages 20 to 79)
 - [**human_capital_index**]{color="blue"}: Human capital index (HCI) (scale 0-1)
@@ -119,17 +126,16 @@ Having lived in both a developing and developed country myself, I can say that t
 
 Therefore, either of these could be used as target variable, but, as this would be somewhat repetitive, I've decided to create a weighted metric to contain all three of them. This metric will be called: **ar_tech**.
 
-This measure will represent the following: *"Access to and reliance on technology"*.
+This measure will represent the following: *"Access to and reliance on technology"*, or *ART* for short.
 
 The measure will be calculated as a weighted measure as follows:
-
-$$\text{ar_tech } = \text{ mobile_subscriptions } * 0.10 + \text{ perc_internet_users } * 0.35 + \text{ access_to_electricity } * 0.55$$
+$$\texttt{ar\_tech} = \frac{\texttt{mobile\_subscriptions} * 10 + \texttt{perc\_internet\_users} * 35 + \texttt{access\_to\_electricity} * 55}{100}$$
 
 This highlights the importance of electricity, as none of the other two would be possible without it, and that clearly, electricity is significantly more important than use of the internet or mobile subscriptions. However, more people using the internet is a huge sign of development, this is also true for mobile subscriptions, but perhaps to a lesser extent.
 
 # Data preprocessing
 
-The data cleanup and very basic feature selection (only removing those with too many NAs) was done in Python. Then a small imputation was then done in R (only for 5 values) within the same Jupyter Notebook (called *preprocessing.ipynb*).
+The data cleanup and very basic feature selection (only removing those with too many NAs) was performed in Python. Then a small imputation was then performed in R (only for 5 remaining missing values) within the same Jupyter Notebook (called *preprocessing.ipynb*).
 
 ## Methodology and steps
 
@@ -148,13 +154,13 @@ The data cleanup and very basic feature selection (only removing those with too 
 
   \item Numerical columns were converted into floats and column names were simplified for easier future manipulation and to call the column names in a more practical way.
 
-  \item We take the **mobile_subscriptions** variable, and convert it to a percentage of the population, in this case, we leave it in ratio form and do not multiply by 100, as we prefer a 0-1 scale.
-
+  \item We take the \textbf{mobile\_subscriptions} variable, and convert it to a percentage of the population, in this case, we leave it in ratio form and do not multiply by 100, as we prefer a 0-1 scale.
+  
   \item The categorical target variable is constructed as explained previously to this step.
 
-  \item The data is then exported as a csv (the dataset itself, called *data.csv*), along with a json (*columns.json*) file which contains the renaming used for the columns in the originally preprocessed dataset up to that step.
+  \item The data is then exported as a csv (the dataset itself, called \textit{data.csv}), along with a json (\textit{columns.json}) file which contains the renaming used for the columns in the originally preprocessed dataset up to that step.
 
-  \item The data is then imported in an R cell and a *mice* imputation is performed using the 'cart' method with m = 5 in order to impute the very few missing values remaining (about 5 missing values).
+  \item The data is then imported in an R cell and a \textit{mice} imputation is performed using the 'cart' method with m = 5 in order to impute the very few missing values remaining (about 5 missing values).
 \end{enumerate}
 
 \newpage
@@ -165,7 +171,7 @@ The data cleanup and very basic feature selection (only removing those with too 
 
 Here we obtain the correlation matrix maximized per correlation coefficient (using all three: Kendall, Pearson and Spearman) for our dataset.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE, fig.show='hide'}
 cols <- names(df)
 methods = c('kendall','spearman','pearson')
 corr_mat = matrix(rep(0,(length(cols)^2)*4), nrow=length(cols)^2)
@@ -191,6 +197,8 @@ for (i in 1:length(cols)) {
         corr_mat$corr_type[cnt] = method_used
     }
 }
+
+#plotting the matrix
 corr_mat %>% ggplot(aes(var1, var2, fill=coef)) +
                  geom_tile() +
                  geom_text(aes(label=round(coef,2))) +
@@ -204,3 +212,159 @@ corr_mat %>% ggplot(aes(var1, var2, fill=coef)) +
                         axis.ticks = element_blank()) +
                 ggsave(file='./img/correl_heatmap.png',  width = 20, height = 20)
 ```
+
+![Correlation matrix maximizing correlation between variables](./img/correl_heatmap.png){width=50%}
+
+There's several things we can notice here that could prelimarily tell us how some of these variables could be excellent predictors.
+
+The most relevant values to compare with our target variable are:
+
+### Very high correlation
+
+#### Negative
+
+- *age_dependency_ratio*: -0.84
+- *birth_rate*: -0.87
+- *infant_mort_rate*: -0.92
+- *prevalence_of_anemia_pregnancy*: -0.93
+
+#### Positive
+
+- *gdp_per_capita_ppp*: 0.88
+- *human_capital_index*: 0.92
+- *human_development_index*: 0.94
+- *life_expectancy*: 0.91
+- *median_age*: 0.87
+
+All these metrics are clearly all significantly descriptive of how developed a country is, those positive ones tell us that the higher their value, the more developed a country is, and the opposite for the negative ones.
+
+A reasonable hypothesis can be proposed, that our constructed target variable is a reasonably good descriptor of development as a whole. These high correlation variables could be instrumental to our predictions
+
+### Moderately correlated
+
+#### Positive
+
+- *total_covid_cases_per_million* and *total_covid_deaths_per_million* at 0.69 and 0.61 respectively
+- *net_enrollment_rate*: 0.72
+- *int_tourism_arrivals* and *fossil_fuel_energy_consumption* at 0.66 and 0.65 respectively
+- *goods_imports*: 0.68
+- *investment_outflows*: 0.6
+
+These moderately correlated variables could also be interesting at predicting, perhaps for better or for worse depending on how we treat them. But it's interesting to see how correlated COVID-19 cases and deaths are to our constructed target index. We could go back to a previous inference we made where we especulated that the most developed and some developing countries were hit the hardest when it comes to the pandemic, while other developing countries, while beign hit hard economically, also handled the pandemic much better than most developed countries.
+
+The rest of the metrics in this category we can infer that are related to each country's development measure as well, but maybe not as much as those previous ones we saw.
+
+### Not correlated almost *at all*
+
+- *agricultural_land*
+- *imports_annual_growth*
+- *fuel_exports*
+- *population_density*
+- *inflation_perc*
+
+These variables maybe relate with development, maybe don't, but for the most part, we can't comfortably say they're very significantly related to it.
+
+They will be used, but I suspect these will be the first ones to be ditched by variable selection algorithms or models themselves.
+
+# Modelling: statistical tools
+
+Onto the modelling part. We will test several models, simple and robust ones, however, all will be done utilizing 5 repeats of 5-fold cross validation. Defined as follows using the *caret* package:
+
+\small
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 5, repeats = 5)
+```
+
+\normalsize
+
+## Simple models
+
+### Simple linear regression (univariate):
+
+We will test simple and multiple regression model for each set of variables, of those that have the highest correlations with our target variable.
+
+#### Prevalence of anemia in pregnancy to predict ART index
+
+Utilizing prevalence of anemia in pregnancy to predict ART index, we obtain an Rsquared of ~0.68 and a relatively low MAE of ~0.099. It's a very simple model, but we can say we're off to a good start. 
+
+##### Results table
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ prevalence_of_anemia_pregnancy ,
+           data = df,
+           method  = "lm",
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results['RMSE'], MAE=model$results['MAE'], Rsquared=model$results['Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="Prevalence of anemia in pregnancy ~ ART index"
+)
+```
+
+#### Infant mortality rate to predict ART index
+
+Testing with a different strongly negatively correlated variable, in this case infant mortality rate, a metric that's usually quite high in countries with low ART index, we can see that the model is reasonably better than that of prevalence of anemia in pregnancy ~ ART index.
+
+We obtain an Rsquared of ~0.78 and a MAE of ~0.079, which is in itself an acceptable model. Perhaps this would be one of those variables that contributes to more robust and multivariate models.
+
+##### Results table
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ infant_mort_rate ,
+           data = df,
+           method  = "lm",
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results['RMSE'], MAE=model$results['MAE'], Rsquared=model$results['Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="HDI ~ ART index"
+)
+```
+
+#### Human development index to predict ART index
+
+As an analogous index to HDI, it is reasonable to check whether it is acceptable at predicting it in a simple linear regression model. 
+
+And we find that yes!, it's actually quite good, with an Rsquared of ~0.87-0.88 and MAE of ~0.06. This variable is probably going to contribute somewhat well in more robust and multiple models.
+
+##### Results table
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ human_development_index ,
+           data = df,
+           method  = "lm",
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results['RMSE'], MAE=model$results['MAE'], Rsquared=model$results['Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="HDI ~ ART index"
+)
+```
+
+##### Residuals
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(model)
+```
+
+### Simple linear regression (multivariate):
