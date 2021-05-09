@@ -24,6 +24,7 @@ knitr::opts_chunk$set(
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
 # importing the data and libraries
 library(dplyr)
+library(ggplot2)
 
 df <- read.csv('./data/data.csv')
 df <- df %>% dplyr::select(c('birth_rate','life_expectancy',
@@ -162,5 +163,44 @@ The data cleanup and very basic feature selection (only removing those with too 
 
 ## Correlation
 
-Here we obtain the 
+Here we obtain the correlation matrix maximized per correlation coefficient (using all three: Kendall, Pearson and Spearman) for our dataset.
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+cols <- names(df)
+methods = c('kendall','spearman','pearson')
+corr_mat = matrix(rep(0,(length(cols)^2)*4), nrow=length(cols)^2)
+corr_mat = corr_mat %>% data.frame() %>% setNames(c('var1','var2','coef','corr_type'))
+cnt = 0
+for (i in 1:length(cols)) {
+    for (j in 1:length(cols)) {
+        cnt = cnt + 1
+        comb1 <- df %>% dplyr::select(cols[i])
+        comb2 <- df %>% dplyr::select(cols[j])
+        maximum_cor = 0
+        method_used = ''
+        for (method in methods) {
+            correl <- cor(comb1[,1],comb2[,1], method=method)
+            if (abs(correl) > abs(maximum_cor)) {
+                maximum_cor <- correl
+                method_used = method
+            }
+        }
+        corr_mat$coef[cnt] = maximum_cor
+        corr_mat$var1[cnt] = cols[i]
+        corr_mat$var2[cnt] = cols[j]
+        corr_mat$corr_type[cnt] = method_used
+    }
+}
+corr_mat %>% ggplot(aes(var1, var2, fill=coef)) +
+                 geom_tile() +
+                 geom_text(aes(label=round(coef,2))) +
+                 scale_fill_gradient(low="red", high="blue", limits=c(-1,1))+
+                 theme( axis.text.x = element_text(angle = 70, vjust = 1, size = 12, hjust = 1),
+                        axis.title.x = element_blank(),
+                        axis.title.y = element_blank(),
+                        panel.grid.major = element_blank(),
+                        panel.border = element_blank(),
+                        panel.background = element_blank(),
+                        axis.ticks = element_blank()) +
+                ggsave(file='./img/correl_heatmap.png',  width = 20, height = 20)
+```
