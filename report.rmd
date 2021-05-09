@@ -31,6 +31,8 @@ library(MASS)
 library(ggfortify)
 library(ggResidpanel)
 library(stringr)
+library(leaps)
+library(olsrr)
 
 df <- read.csv('./data/data.csv')
 df <- df %>% dplyr::select(c('birth_rate','life_expectancy',
@@ -474,10 +476,93 @@ Before removing these, we want to test a model with all possible interactions, j
 plot(varImp(model))
 ```
 
-#### Including all 2-way interactions between previously selected variables
+## Robust linear model
 
-## Robust models
+For the robust models, we test out once again with all the variables.
 
+We first perform a train-test split with 75/25 proportions. and then run *rlm* using the previously defined formula with that preliminary variable selection.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# TT split
+in_train <- createDataPartition(df$ar_tech, p = 0.75, list = FALSE)  # 75% for training
+training <- df[ in_train,]
+testing <- df[-in_train,]
+```
+
+Running the model we obtain the following RMSE:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10, fig.height=7}
+model <- rlm(ar_tech ~ ., data=training)
+rlm_pred <- predict(model, newdata = testing)
+sqrt(mean((exp(rlm_pred) - testing$ar_tech)^2))
+```
+
+Which in an of itself is not a bad metric, but certainly inferior to the previous models, although those had the advantage of cross validation, which might have significantly improved results.
+
+And Rsquared:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+cor(testing$ar_tech, rlm_pred)^2
+```
+
+As for the Rsquared we get a quite decent result at ~0.89, somewhat on par with the simple model using only HDI to predict ART index.
+
+### Using OLS model selection to improve on the simple linear model with all vars
+
+#### OLS forward based on p-val
+
+This method yields a model which performs a similar variable selection to that made through the variable importance plot, with the addition of a few other variables, however, it achieves a better model.
+
+The model gives up some AIC points for a lower RMSE and higher Rsquared, yielding a resulting model with an Rsquared of ~0.925 and an RMSE of ~0.0642.
+
+\footnotesize
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+slm <- lm(ar_tech ~ ., data=training)
+ols_step_forward_p(slm)
+```
+
+\normalsize
+
+#### OLS forward based on AIC
+
+Here we get a similar result to the previous one but with a more simplified set of variables. The quality of teh model is very similar if not basically identical with an Rsquared of ~0.9246 and a similar AIC.
+
+\footnotesize
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+ols_step_forward_aic(slm)
+```
+
+\normalsize
+
+#### OLS step backward based on AIC
+
+On the backward based AIC approach, we end up with a similarly high quality model, only very slightly higher than the previous ones, resulting in an Rsquared of ~0.931 and AIC lower than the previous ones.
+
+\footnotesize
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+ols_step_backward_aic(slm)
+```
+
+\normalsize
+
+#### OLS stepwise AIC
+
+This approach performs similar to the p-value approach, and results in also a similarly quality model, with an Rsquared of ~0.923 and also a similar AIC, lower than that of the backward model, but similar to the others.
+
+\footnotesize
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+ols_step_both_aic(slm)
+```
+
+\normalsize
+
+## Advanced Regression models
+
+###
 
 
 ```{bash, echo=FALSE, warning=FALSE, message=FALSE}
