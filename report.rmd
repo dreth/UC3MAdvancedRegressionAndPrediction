@@ -562,8 +562,234 @@ ols_step_both_aic(slm)
 
 ## Advanced Regression models
 
-###
+For these models we stick with the variables we had previously selected as important with the addition of all 2-way interactions among them, as these advanced models will optimize on the variable selection as they go. 
 
+### Backward regression
+
+For the backward regression model, we obtain a very strong model with a low ~0.0546 MAE and a decent ~0.91 Rsquared. I reckon this could be improved significantly, but it's already better than most of the previous ones seen.
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+imp_vars_formula <- formula(str_interp('ar_tech ~ (${paste(important_vars, collapse="+")})^2'))
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "leapBackward",
+           tuneGrid = expand.grid(nvmax = 3:12),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[length(model$results),'RMSE'], MAE=model$results[length(model$results),'MAE'], Rsquared=model$results[length(model$results),'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model and 2-way interactions"
+)
+```
+
+\normalsize
+
+### Lasso Regression
+
+As for Lasso Regression, we somewhat improve upon the previous result from backward regression. Here we obtain an Rsquared of ~0.921 and a MAE of ~0.052. 
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "lasso",
+           tuneGrid = expand.grid(fraction = seq(.01, 1, length = 20)),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model and 2-way interactions"
+)
+```
+
+\normalsize
+
+### Stepwise Regression
+
+In stepwise regression we obtain a similar result to the previous one, with also quite good metrics and a significantly less computationally intensive model, although at our scale, this does not pose a noticeable difference in runtime. 
+
+The Rsquared is of about ~0.91-0.915 and the MAE lands between that of the Lasso and Backward regression models, at ~0.053
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "leapSeq",
+           tuneGrid = expand.grid(nvmax = 3:12),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[length(model$results),'RMSE'], MAE=model$results[length(model$results),'MAE'], Rsquared=model$results[length(model$results),'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model and 2-way interactions"
+)
+```
+
+\normalsize
+
+### Partial Least Squares
+
+As for partial least squares, we exclude interactions, as these land a significantly worse model. We stick with simply including the variable selection we had done prior in the simple multivariate regression. Here we obtain an Rsquared lower than the previous ones, at around ~0.887 and a MAE of ~0.0619. The model is good, but not good enough compared to the previous ones.
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+imp_vars_formula <- formula(str_interp('ar_tech ~ ${paste(important_vars, collapse="+")}'))
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "pls",
+           tuneGrid = expand.grid(ncomp = 2:10),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[length(model$results),'RMSE'], MAE=model$results[length(model$results),'MAE'], Rsquared=model$results[length(model$results),'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model"
+)
+```
+
+\normalsize
+
+### Ridge Regression 
+
+The Ridge regression model is also very computationally intensive, therefore we do without the interactions. But we also obtain good results, similar to that of the stepwise model in terms of quality. An Rsquared of ~0.916 and a MAE of ~0.0536
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "ridge",
+           tuneGrid = expand.grid(lambda = seq(0, .12, length = 25)),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model"
+)
+```
+
+\normalsize
+### Principle Component Regression 
+
+Similar to the partial least squares model we obtain a similar result in terms of Rsquared at ~0.89 and a MAE of ~0.062. Testing with all the variables, like with the previous models, yields worse results, therefore we stick to the previous variable selection and here we also do not include interactions, this yields a bad model with an extremely low Rsquared and 4-5x higher MAE compared to the rest of models in this section.
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "pcr",
+           tuneGrid = expand.grid(ncomp = 2:10),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[length(model$results),'RMSE'], MAE=model$results[length(model$results),'MAE'], Rsquared=model$results[length(model$results),'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model"
+)
+```
+
+\normalsize
+
+### Elastic Net
+
+Using 2-way interactions to improve upon the model, here in the Elastic Net model we get a lot more to choose from, and ends up resulting in quite good models, with a somewhat small variance among runs.
+
+Here we obtain an Rsquared of ~0.924 and a MAE of ~0.051. This model seems to provide the best results for our purposes so far.
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+imp_vars_formula <- formula(str_interp('ar_tech ~ (${paste(important_vars, collapse="+")})^2'))
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "glmnet",
+           tuneGrid = expand.grid(alpha = seq(0, .2, 0.01), lambda = seq(0, .1, 0.01)),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model and 2-way interactions"
+)
+```
+
+#### Variable importance for Elastic Net
+
+We can see the top variables for Elastic Net are HDI, HCI and its interaction followed by life expectancy in a much lower tier.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=5}
+plot(varImp(model))
+```
+
+#### Trying an elastic net model with only the selected variables in VarImp
+
+Here we get a very very good model, very simple, which only uses HDI, HCI and its interaction as prioritized by Elastic Net.
+This would be our final model with an Rsquared of ~0.9236 and a MAE of ~0.05
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ human_development_index + human_capital_index + human_development_index*human_capital_index,
+           data = df,
+           method  = "glmnet",
+           tuneGrid = expand.grid(alpha = seq(0, .2, 0.01), lambda = seq(0, .1, 0.01)),
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ "
+)
+```
+
+\normalsize
 
 ```{bash, echo=FALSE, warning=FALSE, message=FALSE}
 # Join PDF with cover page
