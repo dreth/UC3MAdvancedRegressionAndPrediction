@@ -23,11 +23,11 @@ knitr::opts_chunk$set(
 
 # Dataset of choice
 
-For this project I decided to pick a custom-built dataset obtained from the [World bank Databank](https://databank.worldbank.org/home.aspx), specifically the [World Development Indicators database](https://databank.worldbank.org/source/world-development-indicators). This is the "primary World Bank collection of development indicators" as stated on the database description. It is a database that especifically lists development variables, many of which also are related to health, economics and human development in a broad sense.
+For this project I picked a custom-built dataset obtained from the [World bank Databank](https://databank.worldbank.org/home.aspx), specifically the [World Development Indicators database](https://databank.worldbank.org/source/world-development-indicators). This is the "primary World Bank collection of development indicators" as stated on the database description. It is a database that especifically lists development variables, many of which also are related to health, economics, the environment and human development in a broad sense.
 
-A second helper dataset that I also used and merged with the one obtained through the World Bank is a COVID-19 dataset 
+A second helper dataset that I also used and merged with the one obtained through the World Bank is a COVID-19 dataset constructed by [Our World in Data](https://ourworldindata.org/) and obtained from [their GitHub repository](https://github.com/owid/covid-19-data/tree/master/public/data), or directly from [the direct link in the README](https://covid.ourworldindata.org/data/owid-covid-data.csv).
 
-The amount of historical data on the database is massive, and the amount of possible predictors is immense. I have stuck to an amount of variables that is also quite large, but will be very interesting to reduce with the techniques learned in class.
+The amount of historical data on both databases is massive, and the amount of possible predictors is immense. I have decided to stick to an amount of variables that is also quite large, but will be very interesting to reduce with the techniques learned in class.
 
 ## Variables
 
@@ -41,7 +41,7 @@ NOTE:
 - **\textcolor{red}{red}** = target variable
 - **\textcolor{green}{green}** = ID variables
 
-Variables in the original dataset as constructed using the World Bank Databank tool (all variables were renamed):
+Variables in the original dataset as constructed using the World Bank Databank tool and the COVID-19 dataset (all variables were renamed):
 
 - [**year**]{color="green"}: year the data was obtained in
 - [**year_code**]{color="green"}: code for the year as the world bank databank sets it
