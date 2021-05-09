@@ -1,0 +1,141 @@
+---
+title: 'Advanced Regression and Prediction Final Project: Predicting access to and reliance on technology'
+author: 'Daniel Alonso'
+date: 'May 9th, 2021'
+output: 
+  pdf_document:
+    extra_dependencies: ["xcolor"]
+    pandoc_args: ["--lua-filter=color_filter.lua"]
+    md_extensions: +bracketed_spans
+    urlcolor: blue
+    toc: true
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+    echo = TRUE,
+    collapse = TRUE,
+    comment = '#>',
+    fig.path = './figures/'
+)
+```
+
+# Dataset of choice
+
+For this project I decided to pick a custom-built dataset obtained from the [World bank Databank](https://databank.worldbank.org/home.aspx), specifically the [World Development Indicators database](https://databank.worldbank.org/source/world-development-indicators). This is the "primary World Bank collection of development indicators" as stated on the database description. It is a database that especifically lists development variables, many of which also are related to health, economics and human development in a broad sense.
+
+A second helper dataset that I also used and merged with the one obtained through the World Bank is a COVID-19 dataset 
+
+The amount of historical data on the database is massive, and the amount of possible predictors is immense. I have stuck to an amount of variables that is also quite large, but will be very interesting to reduce with the techniques learned in class.
+
+## Variables
+
+I have made a really large selection of variables (over 45) initially, however, as many included NAs and a significant amount of countries and dependencies lacked a large amount of metrics, the amount of columns and countries has been reduced to 38 and 173 respectively. Nonetheless, this is still a reasonable amount of data, and also enough to make a reasonably acceptable prediction.
+
+\large
+NOTE:
+\normalsize
+
+- **\textcolor{blue}{blue}** = used for training/predicting
+- **\textcolor{red}{red}** = target variable
+- **\textcolor{green}{green}** = ID variables
+
+Variables in the original dataset as constructed using the World Bank Databank tool (all variables were renamed):
+
+- [**year**]{color="green"}: year the data was obtained in
+- [**year_code**]{color="green"}: code for the year as the world bank databank sets it
+- [**country_name**]{color="green"}: name of the country
+- [**country_code**]{color="green"}: alpha-3 ISO 3166 code for the country
+- [**access_to_electricity**]{color="red"}: Access to electricity (% of population)
+- [**birth_rate**]{color="blue"}: Birth rate, crude (per 1,000 people)
+- [**life_expectancy**]{color="blue"}: Life expectancy at birth, total (years)
+- [**exports_perc_gdp**]{color="blue"}: Exports of goods and services (% of GDP)
+- [**education_years**]{color="blue"}: Compulsory education, duration (years)
+- [**gdp_per_capita_ppp**]{color="blue"}: GDP per capita, PPP (current international $)
+- [**perc_internet_users**]{color="red"}: Individuals using the Internet (% of population)
+- [**infant_mort_rate**]{color="blue"}: Mortality rate, infant (per 1,000 live births)
+- [**inflation_perc**]{color="blue"}: Inflation, consumer prices (annual %)
+- [**consumer_price_index**]{color="blue"}: Consumer price index (2010 = 100)
+- [**crop_production_index**]{color="blue"}: Crop production index (2014-2016 = 100)
+- [**goods_imports**]{color="blue"}: Goods imports (BoP, current US$)
+- [**prevalence_of_anemia_pregnancy**]{color="blue"}: Prevalence of anemia among pregnant women (%)
+- [**diabetes_prevalence**]{color="blue"}: Diabetes prevalence (% of population ages 20 to 79)
+- [**human_capital_index**]{color="blue"}: Human capital index (HCI) (scale 0-1)
+- [**net_enrollment_rate**]{color="blue"}: Adjusted net enrollment rate, primary (% of primary school age children)
+- [**measles_immunization**]{color="blue"}: Immunization, measles (% of children ages 12-23 months)
+- [**co2_emissions_gaseous_fuel**]{color="blue"}: CO2 emissions from gaseous fuel consumption (% of total)
+- [**fossil_fuel_energy_consumption**]{color="blue"}: Fossil fuel energy consumption (% of total)
+- [**fuel_exports**]{color="blue"}: Fuel exports (% of merchandise exports)
+- [**fuel_imports**]{color="blue"}: Fuel imports (% of merchandise imports)
+- [**investment_inflows**]{color="blue"}: Foreign direct investment, net inflows (% of GDP)
+- [**investment_outflows**]{color="blue"}: Foreign direct investment, net outflows (% of GDP)
+- [**mobile_subscriptions**]{color="red"}: Mobile cellular subscriptions (per 100 people)
+- [**agricultural_land**]{color="blue"}: Agricultural land (% of land area)
+- [**greenhouse_gas_em**]{color="blue"}: Total greenhouse gas emissions (% change from 1990)
+- [**age_dependency_ratio**]{color="blue"}: Age dependency ratio (% of working-age population)
+- [**imports_annual_growth**]{color="blue"}: Imports of goods and services (annual % growth)
+- [**int_tourism_arrivals**]{color="blue"}: International tourism, number of arrivals
+- [**total_covid_cases_per_million**]{color="blue"}: Total COVID-19 cases per 1 million inhabitants
+- [**total_covid_deaths_per_million**]{color="blue"}: Total COVID-19 deaths per 1 million inhabitants
+- [**population_density**]{color="blue"}: Population density
+- [**median_age**]{color="blue"}: Median Age
+- [**human_development_index**]{color="blue"}: Human Development Index (HDI, scale 0-1) 
+- [**ar_tech**]{color="red"}: Access to and reliance on technology (scale 0-1)
+
+\newpage
+
+### The target variable
+
+From a very roughly inferential standpoint and looking at the data, we can somewhat see that clearly, both developed and developing countries were hit very hard. However, there's a pattern, where a large chunk of developing countries have barely felt the effects of the pandemic (either due to isolation or the fact that there's just other more serious issues, like large-scale wars or poverty).
+
+Mixing development metrics and COVID data might help us see whether COVID data does indeed contribute to this, and also, how well it can perform when compared to those development metrics when it comes to predicting a particularly good metric to assess development of a nation.
+
+In my statistical learning project, I predicted the HDI Group of a country based on many of these development metrics (and a few other differing ones). One of those metrics, and one that was particularly good at assessing a country's development were **access_to_electricity**: percentage of population with access to electricity,**perc_internet_users**: percentage of population which use the internet and **mobile_subscriptions**: mobile cellular subscriptions per 100 people.
+
+These three were incredibly good at predicting HDI and could be a fantastic substitute for it. And reasonably so, we know that the more developed a country is, the more modern its infrastructure for electricity distribution is and the more it eventually relies on the internet to perform certain acitivities.
+
+Having lived in both a developing and developed country myself, I can say that the consistency of services like electricity supply and how common the internet was used to provide services to the population (to internet users) is quite significant.
+
+Therefore, either of these could be used as target variable, but, as this would be somewhat repetitive, I've decided to create a weighted metric to contain all three of them. This metric will be called: **ar_tech**.
+
+This measure will represent the following: *"Access to and reliance on technology"*.
+
+The measure will be calculated as a weighted measure as follows:
+
+$$\text{ar_tech } = \text{ mobile_subscriptions } * 0.10 + \text{ perc_internet_users } * 0.35 + \text{ access_to_electricity } * 0.55$$
+
+This highlights the importance of electricity, as none of the other two would be possible without it, and that clearly, electricity is significantly more important than use of the internet or mobile subscriptions. However, more people using the internet is a huge sign of development, this is also true for mobile subscriptions, but perhaps to a lesser extent.
+
+# Data preprocessing
+
+The data cleanup and very basic feature selection (only removing those with too many NAs) was done in Python. Then a small imputation was then done in R (only for 5 values) within the same Jupyter Notebook (called *preprocessing.ipynb*).
+
+## Methodology and steps
+
+\begin{enumerate}
+  \item Prior to importing the data, I performed a find and replace within the .csv file with the following regex: \begin{verbatim} \s\[[\w\S]{1,}\] \end{verbatim} to remove every instance of it. This regex matches a metadata tag that the world bank uses in their dataset. Following this step, the data was imported.
+
+  \item Metadata at the end of the dataset was removed. This data corresponded with indexes and regions, whereas the rest of the dataset corresponded with data specific to the countries conforming these indexes/regions. We only keep the countries.
+
+  \item The year column was converted to integer and the '..' values (which represent NAs in the World bank databank) were replaced for numpy NaNs and then the values were sorted by year and country name.
+
+  \item Data missing in later years (2021, 2020) was backfilled with data from previous years (2000-2019), as it still fits our modelling purposes, many of the backfilled data points still correspond to metrics that fit our criteria. The oldest possible data point would go as far back as the year 2000, however, it's unlikely we should have data this old, most should have been backfilled.
+
+  \item The dataset which contains the COVID-19 cases, deaths, population density, population, median age, etc.. is imported, we make a short variable selection within it, only keeping values which correspond to May 1st, 2021. Then, we merge this dataset with the previous dataset utilizing ISO code and using an inner join, only keeping countries in common in both datasets.
+
+  \item Columns with more than 45 NA values were removed as this represents around 25% of the countries in question.
+
+  \item Numerical columns were converted into floats and column names were simplified for easier future manipulation and to call the column names in a more practical way.
+
+  \item We take the **mobile_subscriptions** variable, and convert it to a percentage of the population, in this case, we leave it in ratio form and do not multiply by 100, as we prefer a 0-1 scale.
+
+  \item The categorical target variable is constructed as explained previously to this step.
+
+  \item The data is then exported as a csv (the dataset itself, called *data.csv*), along with a json (*columns.json*) file which contains the renaming used for the columns in the originally preprocessed dataset up to that step.
+
+  \item The data is then imported in an R cell and a *mice* imputation is performed using the 'cart' method with m = 5 in order to impute the very few missing values remaining (about 5 missing values).
+\end{enumerate}
+
+\newpage
+
