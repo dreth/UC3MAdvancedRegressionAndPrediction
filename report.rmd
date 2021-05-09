@@ -21,6 +21,25 @@ knitr::opts_chunk$set(
 )
 ```
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+# importing the data and libraries
+library(dplyr)
+
+df <- read.csv('./data/data.csv')
+df <- df %>% dplyr::select(c('birth_rate','life_expectancy',
+            'exports_perc_gdp','education_years','gdp_per_capita_ppp','infant_mort_rate',
+            'inflation_perc', 'consumer_price_index', 'crop_production_index',
+            'goods_imports', 'prevalence_of_anemia_pregnancy', 'diabetes_prevalence',
+            'human_capital_index', 'net_enrollment_rate', 'measles_immunization',
+            'co2_emissions_gaseous_fuel', 'fossil_fuel_energy_consumption', 'fuel_exports', 'fuel_imports',
+            'investment_inflows', 'investment_outflows',
+            'agricultural_land', 'greenhouse_gas_em', 'age_dependency_ratio', 
+            'imports_annual_growth', 'int_tourism_arrivals', 'total_covid_cases_per_million',
+            'total_covid_deaths_per_million', 'population_density', 'median_age', 'human_development_index', 'ar_tech'))
+
+
+```
+
 # Dataset of choice
 
 For this project I picked a custom-built dataset obtained from the [World bank Databank](https://databank.worldbank.org/home.aspx), specifically the [World Development Indicators database](https://databank.worldbank.org/source/world-development-indicators). This is the "primary World Bank collection of development indicators" as stated on the database description. It is a database that especifically lists development variables, many of which also are related to health, economics, the environment and human development in a broad sense.
@@ -138,4 +157,10 @@ The data cleanup and very basic feature selection (only removing those with too 
 \end{enumerate}
 
 \newpage
+
+# Exploratory Data Analysis
+
+## Correlation
+
+Here we obtain the 
 
