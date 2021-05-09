@@ -266,15 +266,17 @@ These variables maybe relate with development, maybe don't, but for the most par
 
 They will be used, but I suspect these will be the first ones to be ditched by variable selection algorithms or models themselves.
 
+\newpage
+
 # Modelling: statistical tools
 
-Onto the modelling part. We will test several models, simple and robust ones, however, all will be done utilizing 5 repeats of 5-fold cross validation. Defined as follows using the *caret* package:
+Onto the modelling part. We will test several models, simple and robust ones, however, all will be done utilizing 5 repeats of 10-fold cross validation. Defined as follows using the *caret* package:
 
 \small
 
 ```{r, echo=TRUE, warning=FALSE, message=FALSE}
 ctrl <- trainControl(method = "repeatedcv", 
-                     number = 5, repeats = 5)
+                     number = 10, repeats = 5)
 ```
 
 \normalsize
@@ -287,9 +289,11 @@ We will test simple and multiple regression model for each set of variables, of 
 
 #### Prevalence of anemia in pregnancy to predict ART index
 
-Utilizing prevalence of anemia in pregnancy to predict ART index, we obtain an Rsquared of ~0.68 and a relatively low MAE of ~0.099. It's a very simple model, but we can say we're off to a good start. 
+Utilizing prevalence of anemia in pregnancy to predict ART index, we obtain an Rsquared of ~0.69 and a relatively low MAE of ~0.099. It's a very simple model, but we can say we're off to a good start. 
 
 ##### Results table
+
+\small
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 model <- train(ar_tech ~ prevalence_of_anemia_pregnancy ,
@@ -305,17 +309,21 @@ knitr::kable(
     model_results,
     booktabs=TRUE,
     longtable=TRUE,
-    caption="Prevalence of anemia in pregnancy ~ ART index"
+    caption="ART index ~ Prevalence of anemia in pregnancy"
 )
 ```
+
+\normalsize
 
 #### Infant mortality rate to predict ART index
 
 Testing with a different strongly negatively correlated variable, in this case infant mortality rate, a metric that's usually quite high in countries with low ART index, we can see that the model is reasonably better than that of prevalence of anemia in pregnancy ~ ART index.
 
-We obtain an Rsquared of ~0.78 and a MAE of ~0.079, which is in itself an acceptable model. Perhaps this would be one of those variables that contributes to more robust and multivariate models.
+We obtain an Rsquared of ~0.79 and a MAE of ~0.079, which is in itself an acceptable model. Perhaps this would be one of those variables that contributes to more robust and multivariate models.
 
 ##### Results table
+
+\small
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 model <- train(ar_tech ~ infant_mort_rate ,
@@ -331,17 +339,23 @@ knitr::kable(
     model_results,
     booktabs=TRUE,
     longtable=TRUE,
-    caption="HDI ~ ART index"
+    caption="ART index ~ Infant mortality rate"
 )
 ```
+
+\normalsize
+
+\newpage
 
 #### Human development index to predict ART index
 
 As an analogous index to HDI, it is reasonable to check whether it is acceptable at predicting it in a simple linear regression model. 
 
-And we find that yes!, it's actually quite good, with an Rsquared of ~0.87-0.88 and MAE of ~0.06. This variable is probably going to contribute somewhat well in more robust and multiple models.
+And we find that yes!, it's actually quite good, with an Rsquared of ~0.88 and MAE of ~0.06. This variable is probably going to contribute somewhat well in more robust and multiple models.
 
 ##### Results table
+
+\small
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 model <- train(ar_tech ~ human_development_index ,
@@ -357,14 +371,126 @@ knitr::kable(
     model_results,
     booktabs=TRUE,
     longtable=TRUE,
-    caption="HDI ~ ART index"
+    caption="ART index ~ HDI"
 )
 ```
 
-##### Residuals
+\normalsize
+
+ 
+### Simple linear regression (multivariate):
+
+For multivariate linear regression we first test out with all the variables, utilizing the same trainControl defined as before:
+
+#### Using all variables to predict ART index
+
+Utilizing all the variables yields a reasonably good model.
+
+The Rsquared is of ~0.89 and the MAE is of ~0.061. This is only slightly better than when using only HDI.
+
+##### Results table
+
+\small
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
-ggplot(model)
+model <- train(ar_tech ~ . ,
+           data = df,
+           method  = "lm",
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results['RMSE'], MAE=model$results['MAE'], Rsquared=model$results['Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ ."
+)
 ```
 
-### Simple linear regression (multivariate):
+\normalsize
+
+##### Variable importance
+
+As we suspected, we can see that the most important variables are headed by *life expectancy*, *HDI*, and a few others like *diabetes prevalence*, *fuel exports* and *human capital index*. Interestingly, some of these we did not expect to see up here, but seem to yield decent results along with the rest.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=5}
+plot(varImp(model))
+```
+
+From our variable importance plot, we can then test a model where the variable importance only exceeds 25% importance.
+
+\newpage
+
+#### Using only variables with 20%+ importance
+
+We filter the previously shown data used to plot variable importance, and we only keep those with 20% or more importance filtering the table. 
+
+And looking at our results, we can see there's been a reasonable improvement in model quality, these apparently small incremental improvements when we have a very high Rsquared are quite welcome, and as we have done utilizing the following set of variables:
+
+The model yields an Rsquared of ~0.915 and a MAE of ~0.054, both improving on previous model attempts.
+
+Unfortunately, the COVID-19 metrics do not really contribute as much as we had expected before, yielding a quite low variable importance in the previous all variable model.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+important_vars <- c('birth_rate','life_expectancy','gdp_per_capita_ppp','infant_mort_rate',
+            'prevalence_of_anemia_pregnancy', 'diabetes_prevalence',
+            'human_capital_index', 'fossil_fuel_energy_consumption', 'fuel_exports', 'age_dependency_ratio','int_tourism_arrivals', 'median_age', 'human_development_index')
+imp_vars_formula <- formula(str_interp('ar_tech ~ ${paste(important_vars, collapse="+")}'))
+```
+
+##### Results table
+
+\small
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(imp_vars_formula,
+           data = df,
+           method  = "lm",
+           trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results['RMSE'], MAE=model$results['MAE'], Rsquared=model$results['Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ 20%+ importance variables from all variable model"
+)
+```
+
+\normalsize
+
+##### Variable importance
+
+We also want to see variable importance after clearing up variables that are less important, and we see that the top variables remain the same with a few others going down in importance, much less so than in the previous models. 
+
+Before removing these, we want to test a model with all possible interactions, just to determine whether these serve a good purpose in the model.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=5}
+plot(varImp(model))
+```
+
+#### Including all 2-way interactions between previously selected variables
+
+## Robust models
+
+
+
+```{bash, echo=FALSE, warning=FALSE, message=FALSE}
+# Join PDF with cover page
+pdftk "./cover page/portada.pdf" "./report.pdf" cat output "./final_report.pdf"
+```
+
+```{bash, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
+# Clean up latex output files (not very useful)
+IFS=$'\n'
+set -f
+for f in $(find ../ -name '*.log' -or -name '*.out' -or -name '*.synctex.gz' -or -name '*.fls' -or -name '*.fdb_latexmk' -or -name '*.aux'); do rm "$f"; done
+unset IFS
+set +f
+```
