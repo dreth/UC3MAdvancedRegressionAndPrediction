@@ -111,8 +111,6 @@ Variables in the original dataset as constructed using the World Bank Databank t
 - [**human_development_index**]{color="blue"}: Human Development Index (HDI, scale 0-1) 
 - [**ar_tech**]{color="red"}: Access to and reliance on technology (scale 0-1)
 
-\newpage
-
 ### The target variable
 
 From a very roughly inferential standpoint and looking at the data, we can somewhat see that clearly, both developed and developing countries were hit very hard. However, there's a pattern, where a large chunk of developing countries have barely felt the effects of the pandemic (either due to isolation or the fact that there's just other more serious issues, like large-scale wars or poverty).
@@ -346,8 +344,6 @@ knitr::kable(
 
 \normalsize
 
-\newpage
-
 #### Human development index to predict ART index
 
 As an analogous index to HDI, it is reasonable to check whether it is acceptable at predicting it in a simple linear regression model. 
@@ -422,8 +418,6 @@ plot(varImp(model))
 ```
 
 From our variable importance plot, we can then test a model where the variable importance only exceeds 25% importance.
-
-\newpage
 
 #### Using only variables with 20%+ importance
 
@@ -757,11 +751,13 @@ knitr::kable(
 )
 ```
 
+\newpage
+
 #### Variable importance for Elastic Net
 
 We can see the top variables for Elastic Net are HDI, HCI and its interaction followed by life expectancy in a much lower tier.
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=5}
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=10}
 plot(varImp(model))
 ```
 
