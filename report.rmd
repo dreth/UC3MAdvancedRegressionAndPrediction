@@ -30,6 +30,7 @@ library(caret)
 library(MASS)
 library(ggfortify)
 library(ggResidpanel)
+library(stringr)
 
 df <- read.csv('./data/data.csv')
 df <- df %>% dplyr::select(c('birth_rate','life_expectancy',
@@ -53,8 +54,6 @@ For this project I picked a custom-built dataset obtained from the [World bank D
 A second helper dataset that I also used and merged with the one obtained through the World Bank is a COVID-19 dataset constructed by [Our World in Data](https://ourworldindata.org/) and obtained from [their GitHub repository](https://github.com/owid/covid-19-data/tree/master/public/data), or directly from [the direct link in the README](https://covid.ourworldindata.org/data/owid-covid-data.csv).
 
 The amount of historical data on both databases is massive, and the amount of possible predictors is immense. I have decided to stick to an amount of variables that is also quite large, but will be very interesting to reduce with the techniques learned in class.
-
-\newpage
 
 ## Variables
 
@@ -486,7 +485,7 @@ plot(varImp(model))
 pdftk "./cover page/portada.pdf" "./report.pdf" cat output "./final_report.pdf"
 ```
 
-```{bash, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
+```{bash, echo=FALSE, warning=FALSE, message=FALSE}
 # Clean up latex output files (not very useful)
 IFS=$'\n'
 set -f
