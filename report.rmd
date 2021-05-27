@@ -1,7 +1,7 @@
 ---
 title: 'Advanced Regression and Prediction Final Project: Predicting access to and reliance on technology'
 author: 'Daniel Alonso'
-date: 'May 9th, 2021'
+date: 'May 27th, 2021'
 output: 
   pdf_document:
     extra_dependencies: ["xcolor"]
@@ -33,6 +33,9 @@ library(ggResidpanel)
 library(stringr)
 library(leaps)
 library(olsrr)
+library(kernlab)
+library(RRF)
+library(randomForest)
 
 df <- read.csv('./data/data.csv')
 df <- df %>% dplyr::select(c('birth_rate','life_expectancy',
@@ -781,11 +784,303 @@ knitr::kable(
     model_results,
     booktabs=TRUE,
     longtable=TRUE,
-    caption="ART index ~ "
+    caption="ART index ~ HDI + HCI + HDI:HCI"
 )
 ```
 
 \normalsize
+
+\newpage
+
+# Modelling: ML tools
+
+Given the acquired knowledge from the previous models, we will be practical, since we know what variables are the most important. However, it is reasonable to first run a simple ML model with all the variables and determine whether it coincides in what to consider the most important.
+
+We will run all models utilizing 3 repeats of 5-fold CV.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 5, repeats = 3)
+```
+
+## KNN with all variables
+
+As a start, we can run a simple model like KNN, this way we can assess whether our previously evaluated variable priority is still usable.
+
+The model performs reasonably well, ~0.87-0.88 Rsquared and with a similarly good MAE as the previously evaluated models.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ ., 
+                  data = df,
+                  method = "kknn",   
+                  preProc=c('scale','center'),
+                  tuneGrid = data.frame(kmax=c(11,13,15,19,21),distance=2,kernel='optimal'),
+                  na.action = na.omit,
+                  trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ ."
+)
+```
+
+### Variable importance
+
+KNN considers significantly more variables than the previous, simpler albeit also quite robust models. Here we will make a cutoff under 60% importance. We will also make sure to include the most important variables from the previous models, which would've otherwise also been included, given that they're still at the top of this model's variable importance.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=6}
+plot(varImp(model))
+```
+
+## KNN with previous and current var. selection
+
+As a preliminary selection, we will keep the following variables: HDI, HCI, infant mortality rate, birth rate, median age, GDP per capita PPP, age dependency ratio, prevalence of anemia in pregnancy and net enrollment rate. 
+
+After this, there's a sharp dropoff in importance, let's assess the quality of this model:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ human_development_index + human_capital_index + 
+                human_development_index:human_capital_index + infant_mort_rate + birth_rate + median_age + 
+                gdp_per_capita_ppp + age_dependency_ratio + prevalence_of_anemia_pregnancy + net_enrollment_rate + 
+                life_expectancy, 
+                  data = df,
+                  method = "kknn",   
+                  preProc=c('scale','center'),
+                  tuneGrid = data.frame(kmax=c(3,5,7,9,11),distance=2,kernel='optimal'),
+                  na.action = na.omit,
+                  trControl = ctrl)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ preliminary variable selection"
+)
+```
+
+The model improves on the previous one somewhat, but we can definitely do better than this.
+
+### Variable importance
+
+Checking the variable importance again, we see something interesting, something that corroborates with our previous results. Those variables the KNN with all the variables had considered important, are not all really that important when put in context of others that we know are significantly related to each other. We know that HDI, HCI, Life expectancy, infant mortality rate, median age, and GDP per capita PPP are all significantly either negatively or positively correlated. Therefore it's reasonable to make the assumption that these will have similar importance scores for this model.
+
+Therefore, using our previous rule, we will make the cutoff at the same position, all variables with lower than 60% importance will be preliminarily removed.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=4}
+plot(varImp(model))
+```
+
+## SVR with radial basis function kernel
+
+SVR returns a slightly better result using the previous variable selection, at around ~0.89-0.9 Rsquared and a slightly lower MAE. However, this is still less good than the previously tested statistical models. 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ human_development_index + human_capital_index + 
+                human_development_index:human_capital_index + infant_mort_rate + birth_rate + median_age + 
+                gdp_per_capita_ppp + life_expectancy, 
+                  data = df,
+                  method = "svmRadial",
+                  preProc=c('scale','center'),
+                  na.action = na.omit,
+                  trControl = ctrl,
+                  epsilon=0.1,
+                  tuneGrid = data.frame(C=c(.5,1,2), sigma=c(.01,0.2,.03)),
+                  importance = TRUE)
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ preliminary+KNN variable selection"
+)
+```
+
+## Random forest
+
+Using a random forest improves the previous results a small bit as well, reducing the MAE and increasing the Rsquared, although results can vary somewhat among runs, the resulting Rsquared peaks at ~0.9. Which is a promising result, but could be improved.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ human_development_index + human_capital_index + 
+                human_development_index:human_capital_index + infant_mort_rate + birth_rate + median_age + 
+                gdp_per_capita_ppp + life_expectancy, 
+                 data = df,
+                 method = "rf",
+                 preProc=c('scale','center'),
+                 na.action = na.omit,
+                 trControl = ctrl,
+                 ntree = 100,
+                 tuneGrid = data.frame(mtry=c(5,10,15)),
+                 importance = TRUE)
+
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ preliminary+KNN variable selection"
+)
+```
+
+## Random forest using some interactions + var selection
+
+Selecting most important variables including interactions after running a full model with all 2-way interactions among all variables, we can re-run the model selecting a bigger cutoff of ~80% importance, given that we have a significantly larger amount of options to choose from now, even above this cutoff.
+
+This approach nets us a model with an Rsquared of ~0.91-0.92 and an even lower MAE of ~0.048-0.49.
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ human_development_index + life_expectancy:human_development_index + 
+                 human_capital_index:human_development_index + infant_mort_rate + 
+                 net_enrollment_rate:human_development_index + gdp_per_capita_ppp:median_age + 
+                 birth_rate:prevalence_of_anemia_pregnancy + life_expectancy:fossil_fuel_energy_consumption +
+                 life_expectancy:human_capital_index + education_years:infant_mort_rate + human_capital_index, 
+                 data = df,
+                 method = "rf",
+                 preProc=c('scale','center'),
+                 na.action = na.omit,
+                 trControl = ctrl,
+                 ntree = 100,
+                 tuneGrid = data.frame(mtry=c(5,10,15,20,25)),
+                 importance = TRUE)
+
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ RF var. selection incl. 2-way interactions"
+)
+```
+
+## RF: Further reducing the number of variables (cutoff > 40% imp)
+
+Only doing a 40% cutoff with respect to the previous model nets us a similarly high Rsquared and a lower MAE, however, with a simpler model.
+
+The selected variables are:
+
+- **life_expectancy:human_development_index**
+
+- **human_capital_index:human_development_index**
+
+- **gdp_per_capita_ppp:median_age**
+
+- **life_expectancy:fossil_fuel_energy_consumption**
+
+- **life_expectancy:human_capital_index**
+
+As we can see, they're all two-way interactions between strongly positively or negatively correlated variables, all highly related to development. 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ life_expectancy:human_development_index + 
+                 human_capital_index:human_development_index + gdp_per_capita_ppp:median_age +
+                 life_expectancy:fossil_fuel_energy_consumption +
+                 life_expectancy:human_capital_index , 
+                 data = df,
+                 method = "rf",
+                 preProc=c('scale','center'),
+                 na.action = na.omit,
+                 trControl = ctrl,
+                 ntree = 100,
+                 tuneGrid = data.frame(mtry=c(5,10,15,20,25)),
+                 importance = TRUE)
+
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ Final RF Variable selection"
+)
+```
+
+## Quantile random forest
+
+Testing with a quantile random forest and the same variable selection does not really improve on the previous model.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ life_expectancy:human_development_index + 
+                 human_capital_index:human_development_index + gdp_per_capita_ppp:median_age +
+                 life_expectancy:fossil_fuel_energy_consumption +
+                 life_expectancy:human_capital_index , 
+                 data = df,
+                 method = "qrf",
+                 preProc=c('scale','center'),
+                 na.action = na.omit,
+                 trControl = ctrl,
+                 ntree = 100,
+                 tuneGrid = data.frame(mtry=c(5,10,15,20,25)),
+                 importance = TRUE)
+
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ Final RF Variable selection"
+)
+```
+
+## Regularized random forest
+
+Using a regularized random forest, we can reach a model with somewhat better results, these seem more consistent and predictable. Reduces our MAE and increases our Rsquared somewhat minimally, however, the model is indeed better.
+
+The Rsquared hovers around ~0.91-0.92 while the MAE drops between ~0.046-0.048.
+
+This would be our final selected model.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+model <- train(ar_tech ~ life_expectancy:human_development_index + 
+                 human_capital_index:human_development_index + gdp_per_capita_ppp:median_age +
+                 life_expectancy:fossil_fuel_energy_consumption , 
+                 data = df,
+                 method = "RRF",
+                 preProc=c('scale','center'),
+                 na.action = na.omit,
+                 trControl = ctrl,
+                 ntree = 100,
+                 tuneGrid = data.frame(mtry=c(0.5,0.1,0.01), coefReg=c(0.0001,0.001,0.1), coefImp=c(1,2,0.1)),
+                 importance = TRUE)
+
+
+# create df with r squared
+model_results <- data.frame(RMSE=model$results[1,'RMSE'], MAE=model$results[1,'MAE'], Rsquared=model$results[1,'Rsquared'])
+
+# make table pretty
+knitr::kable(
+    model_results,
+    booktabs=TRUE,
+    longtable=TRUE,
+    caption="ART index ~ Final RF Variable selection"
+)
+```
 
 ```{bash, echo=FALSE, warning=FALSE, message=FALSE}
 # Join PDF with cover page
