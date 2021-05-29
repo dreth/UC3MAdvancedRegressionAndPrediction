@@ -1,4 +1,4 @@
-# UC3MAdvancedRegressionAndPrediction
+# Advanced regression and prediction (UC3M)
 
 My Advanced Regression and Prediction final project (part 1 and 2) for the class taken at UC3M.
 
